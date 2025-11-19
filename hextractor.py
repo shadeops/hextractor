@@ -5,6 +5,8 @@ import argparse
 import tarfile
 import zipfile
 import json
+import platform
+
 
 import pycdlib
 
@@ -19,7 +21,10 @@ def install_data_product(iso, files_json, dest):
     for tar in file_archives:
         with iso.open_file_from_iso(rr_path=f"/data/{tar}") as tar_handle:
             with tarfile.open(mode="r", fileobj=tar_handle) as t:
-                t.extractall(path=dest, filter="tar")
+                if hasattr(tarfile, "data_filter"):
+                    t.extractall(path=dest, filter="tar")
+                else:
+                    t.extractall(path=dest)
 
 def recursive_expansion(str_fmt, var_dict):
     while True:
@@ -104,7 +109,7 @@ def main(args):
             dest_dir = f"{dest}/{from_shfs}"
             if not os.path.exists(dest_dir):
                 # TODO copy iso dir's permissions
-                os.mkdir(dest_dir, mode=0o755)
+                os.makedirs(dest_dir, mode=0o755)
             for iso_file in files:
                 shfs_path = f"{from_shfs}/{iso_file}"
                 if args.optional_shfs == False and shfs_files[shfs_path]["required"] == False:
@@ -121,22 +126,30 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
-    install_root = "/opt"
-    houdini_dir = "{install_root}/hfs{iso_version}"
-    shfs_dir = "{install_root}/sidefx/shfs"
-    sidefxlabs_dir = "{install_root}/sidefx/sidefx_packages"
+    if platform.system() == "Windows":
+        install_root = "C:/Program Files/Side Effects Software"
+        houdini_dir = "{install_root}/Houdini {iso_version}"
+        shfs_dir = "{install_root}/shfs"
+        sidefxlabs_dir = "{install_root}/sidefx_packages"
+    elif platform.system() == "Linux":
+        install_root = "/opt"
+        houdini_dir = "{install_root}/hfs{iso_version}"
+        shfs_dir = "{install_root}/sidefx/shfs"
+        sidefxlabs_dir = "{install_root}/sidefx/sidefx_packages"
+    else:
+        raise OSError("No...just no")
     engine_maya_dir = "{houdini_dir}/engine/maya"
     engine_unity_dir = "{houdini_dir}/engine/unity"
     engine_unreal_dir = "{houdini_dir}/engine/unreal"
 
     parser.add_argument("iso", type=str, help="Offline iso image", metavar="{path_to_iso}")
-    parser.add_argument(
-        "--dry-run",
-        dest="dryrun",
-        help="Report what will be done",
-        action="store_true",
-        default=False,
-    )
+    #parser.add_argument(
+    #    "--dry-run",
+    #    dest="dryrun",
+    #    help="Report what will be done",
+    #    action="store_true",
+    #    default=False,
+    #)
     parser.add_argument(
         "--install-houdini",
         dest="houdini",
